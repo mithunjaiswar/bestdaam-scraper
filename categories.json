@@ -1,0 +1,50 @@
+[
+  {
+    "name": "mobiles",
+    "query": "mobiles"
+  },
+  {
+    "name": "iphone",
+    "query": "iphone"
+  },
+  {
+    "name": "laptops",
+    "query": "laptops"
+  },
+  {
+    "name": "headphones",
+    "query": "headphones"
+  },
+  {
+    "name": "earbuds",
+    "query": "earbuds"
+  },
+  {
+    "name": "wired_earphones",
+    "query": "wired earphones"
+  },
+  {
+    "name": "mens_clothing",
+    "query": "men clothing"
+  },
+  {
+    "name": "smartwatches",
+    "query": "smart watches"
+  },
+  {
+    "name": "televisions",
+    "query": "smart tv"
+  },
+  {
+    "name": "speakers",
+    "query": "bluetooth speakers"
+  },
+  {
+    "name": "tablets",
+    "query": "tablets"
+  },
+  {
+    "name": "cameras",
+    "query": "camera"
+  }
+]
