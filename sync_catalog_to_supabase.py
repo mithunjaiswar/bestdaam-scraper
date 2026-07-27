@@ -15,12 +15,16 @@ PRODUCTS_JSON = SITE_DIR / "data" / "products.json"
 
 def request_headers():
     key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
-    return {
+    headers = {
         "apikey": key,
-        "Authorization": f"Bearer {key}",
         "Content-Type": "application/json",
         "Prefer": "resolution=merge-duplicates,return=minimal",
     }
+    # Legacy service-role JWTs need the Authorization header. Supabase's
+    # modern sb_secret_* keys authenticate through the apikey header only.
+    if not key.startswith("sb_secret_"):
+        headers["Authorization"] = f"Bearer {key}"
+    return headers
 
 
 def post_rows(table, rows, batch_size=200):
