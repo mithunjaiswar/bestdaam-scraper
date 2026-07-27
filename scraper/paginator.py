@@ -1,5 +1,6 @@
 import time
 
+from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from scraper.parser import parse_products
@@ -16,17 +17,26 @@ def load_results_page(page, url, attempts=3):
             page.wait_for_selector("div[data-id]", timeout=20000)
             page.wait_for_timeout(1500)
             return
-        except PlaywrightTimeoutError:
-            if page.locator("div[data-id]").count() > 0:
-                print("Page slow tha, lekin products load ho gaye.")
-                return
+        except (PlaywrightTimeoutError, PlaywrightError) as error:
+            try:
+                page.wait_for_load_state("domcontentloaded", timeout=10000)
+            except PlaywrightError:
+                pass
+
+            try:
+                if page.locator("div[data-id]").count() > 0:
+                    print("Page slow tha, lekin products load ho gaye.")
+                    return
+            except PlaywrightError:
+                pass
 
             if attempt == attempts:
                 raise
 
             wait_seconds = attempt * 5
             print(
-                f"Page load timeout. Retry {attempt}/{attempts} "
+                f"Page load issue ({type(error).__name__}). "
+                f"Retry {attempt}/{attempts} "
                 f"{wait_seconds} seconds baad..."
             )
             time.sleep(wait_seconds)
