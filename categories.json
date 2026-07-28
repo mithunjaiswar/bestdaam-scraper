@@ -46,5 +46,11 @@
   {
     "name": "cameras",
     "query": "camera"
+  },
+  {
+    "name": "stationery",
+    "query": "stationery",
+    "limit": 200,
+    "scrapeLimit": 220
   }
 ]

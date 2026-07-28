@@ -32,6 +32,12 @@ def run_all_categories(
 
         name = category["name"]
         query = category["query"]
+        category_limit = int(
+            category.get(
+                "scrapeLimit",
+                category.get("limit", limit),
+            )
+        )
 
         print("\n" + "=" * 60)
         print(f"Starting Category : {name}")
@@ -41,7 +47,7 @@ def run_all_categories(
             page=page,
             base_url=base_url,
             category=query,
-            limit=limit,
+            limit=category_limit,
         )
 
         products = [

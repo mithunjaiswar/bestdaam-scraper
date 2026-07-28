@@ -5,6 +5,7 @@ import os
 import re
 import shutil
 import sqlite3
+from urllib.parse import urlparse
 
 
 DB_PATH = "products.db"
@@ -15,6 +16,9 @@ SITE_DIR = os.path.expanduser(
 OUTPUT_JSON = os.path.join(SITE_DIR, "data", "products.json")
 
 MAX_PRODUCTS_PER_CATEGORY = 100
+PRODUCT_LIMITS_BY_CATEGORY = {
+    "stationery": 200,
+}
 
 
 CATEGORY_LABELS = {
@@ -30,6 +34,7 @@ CATEGORY_LABELS = {
     "speakers": "Speaker",
     "tablets": "Tablet",
     "cameras": "Camera",
+    "stationery": "Stationery",
     "requested_products": "Requested Products",
 }
 
@@ -47,6 +52,7 @@ CATEGORY_EMOJIS = {
     "speakers": "🔊",
     "tablets": "📱",
     "cameras": "📷",
+    "stationery": "✏️",
     "requested_products": "🛍️",
 }
 
@@ -102,7 +108,14 @@ def normalize_url(value):
     if not value:
         return ""
 
-    return value.split("#")[0].strip()
+    parsed = urlparse(value)
+    hostname = parsed.netloc.lower().replace("www.", "")
+    path = parsed.path.rstrip("/").lower()
+
+    if hostname and path:
+        return f"{hostname}{path}"
+
+    return value.split("?")[0].split("#")[0].rstrip("/").lower()
 
 
 def load_existing_affiliate_urls():
@@ -124,6 +137,39 @@ def load_existing_affiliate_urls():
 
             if original_url and affiliate_url:
                 affiliate_urls[original_url] = affiliate_url
+
+    return affiliate_urls
+
+
+def load_existing_affiliate_urls_by_product():
+    affiliate_urls = {}
+
+    if not os.path.exists(OUTPUT_JSON):
+        return affiliate_urls
+
+    try:
+        with open(OUTPUT_JSON, "r", encoding="utf-8") as file:
+            products = json.load(file)
+    except (OSError, json.JSONDecodeError):
+        return affiliate_urls
+
+    for product in products:
+        category_key = clean_text(product.get("categoryKey")).lower()
+        product_name = normalize_key(
+            product.get("rawName") or product.get("name")
+        )
+
+        if not category_key or not product_name:
+            continue
+
+        for price_entry in product.get("prices", []):
+            if clean_text(price_entry.get("store")).lower() != "flipkart":
+                continue
+
+            affiliate_url = clean_text(price_entry.get("affiliateUrl"))
+
+            if affiliate_url:
+                affiliate_urls[(category_key, product_name)] = affiliate_url
 
     return affiliate_urls
 
@@ -515,6 +561,7 @@ def build_product(
     row,
     amazon_matches,
     existing_affiliate_urls,
+    existing_affiliate_urls_by_product,
     existing_amazon_entries,
     price_history_by_url,
     used_amazon_urls,
@@ -546,6 +593,11 @@ def build_product(
     existing_affiliate_url = existing_affiliate_urls.get(
         normalize_url(flipkart_url)
     )
+
+    if not existing_affiliate_url:
+        existing_affiliate_url = existing_affiliate_urls_by_product.get(
+            (category_key, normalize_key(raw_name))
+        )
 
     if existing_affiliate_url:
         flipkart_entry["affiliateUrl"] = existing_affiliate_url
@@ -597,6 +649,9 @@ def main():
     flipkart_rows = load_flipkart_products()
     price_history_by_url = load_flipkart_price_history()
     existing_affiliate_urls = load_existing_affiliate_urls()
+    existing_affiliate_urls_by_product = (
+        load_existing_affiliate_urls_by_product()
+    )
     existing_amazon_entries = load_existing_amazon_entries()
 
     products = []
@@ -608,14 +663,21 @@ def main():
         category_key = clean_text(row["category"]).lower()
 
         current_count = category_counts.get(category_key, 0)
+        category_limit = PRODUCT_LIMITS_BY_CATEGORY.get(
+            category_key,
+            MAX_PRODUCTS_PER_CATEGORY,
+        )
 
-        if current_count >= MAX_PRODUCTS_PER_CATEGORY:
+        if current_count >= category_limit:
             continue
 
         product = build_product(
             row=row,
             amazon_matches=amazon_matches,
             existing_affiliate_urls=existing_affiliate_urls,
+            existing_affiliate_urls_by_product=(
+                existing_affiliate_urls_by_product
+            ),
             existing_amazon_entries=existing_amazon_entries,
             price_history_by_url=price_history_by_url,
             used_amazon_urls=used_amazon_urls,
