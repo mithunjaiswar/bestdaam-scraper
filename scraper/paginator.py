@@ -1,9 +1,15 @@
+import re
 import time
 
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from scraper.parser import parse_products
+
+
+def product_name_key(product):
+    name = str(product.get("name", "")).lower()
+    return re.sub(r"[^a-z0-9]+", " ", name).strip()
 
 
 def load_results_page(page, url, attempts=3):
@@ -43,7 +49,8 @@ def load_results_page(page, url, attempts=3):
 
 
 def scrape_top_products(page, base_url, category="mobiles", limit=100):
-    seen = set()
+    seen_urls = set()
+    seen_names = set()
     all_products = []
     page_no = 1
 
@@ -59,9 +66,18 @@ def scrape_top_products(page, base_url, category="mobiles", limit=100):
             break
 
         for product in products:
-            if product["url"] not in seen:
-                seen.add(product["url"])
-                all_products.append(product)
+            url = product.get("url")
+            name_key = product_name_key(product)
+
+            if not url or not name_key:
+                continue
+
+            if url in seen_urls or name_key in seen_names:
+                continue
+
+            seen_urls.add(url)
+            seen_names.add(name_key)
+            all_products.append(product)
 
         print(f"Unique Products: {len(all_products)}")
 

@@ -51,6 +51,6 @@
     "name": "stationery",
     "query": "stationery",
     "limit": 200,
-    "scrapeLimit": 220
+    "scrapeLimit": 240
   }
 ]

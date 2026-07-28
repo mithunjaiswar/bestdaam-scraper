@@ -3,6 +3,7 @@ import os
 import re
 import subprocess
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 import requests
@@ -15,7 +16,8 @@ SITE_DIR = os.path.expanduser(
 PRODUCTS_JSON = os.path.join(SITE_DIR, "data", "products.json")
 BACKUP_DIR = "output/backups"
 
-SLEEP_SECONDS = 1.5
+SLEEP_SECONDS = float(os.environ.get("EKARO_SLEEP_SECONDS", "1.5"))
+MAX_WORKERS = int(os.environ.get("EKARO_MAX_WORKERS", "1"))
 SAVE_EVERY = 25
 KEYCHAIN_SERVICE = "bestdaam-ekaro-api-token"
 
@@ -194,25 +196,41 @@ def main():
     applied_count = 0
     failed_count = 0
 
-    for index, item in enumerate(pending_entries, start=1):
-        product_name = item["product_name"]
-        original_url = item["url"]
+    processed_count = 0
 
-        print(f"[{index}/{len(pending_entries)}] Converting: {product_name[:70]}")
+    for start in range(0, len(pending_entries), MAX_WORKERS):
+        batch = pending_entries[start:start + MAX_WORKERS]
 
-        affiliate_url = convert_url(original_url, token)
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            converted_urls = list(
+                executor.map(
+                    lambda item: convert_url(item["url"], token),
+                    batch,
+                )
+            )
 
-        if affiliate_url:
-            item["entry"]["affiliateUrl"] = affiliate_url
-            applied_count += 1
-            print(f"  OK: {affiliate_url}")
-        else:
-            failed_count += 1
-            print("  Failed")
+        for item, affiliate_url in zip(batch, converted_urls):
+            processed_count += 1
+            product_name = item["product_name"]
+            print(
+                f"[{processed_count}/{len(pending_entries)}] "
+                f"Converting: {product_name[:70]}"
+            )
 
-        if index % SAVE_EVERY == 0:
+            if affiliate_url:
+                item["entry"]["affiliateUrl"] = affiliate_url
+                applied_count += 1
+                print(f"  OK: {affiliate_url}")
+            else:
+                failed_count += 1
+                print("  Failed")
+
+        if (
+            processed_count % SAVE_EVERY < MAX_WORKERS
+            or processed_count == len(pending_entries)
+        ):
             save_products(products)
-            print(f"Progress saved after {index} links.")
+            print(f"Progress saved after {processed_count} links.")
 
         time.sleep(SLEEP_SECONDS)
 

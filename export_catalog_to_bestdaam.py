@@ -155,11 +155,13 @@ def load_existing_affiliate_urls_by_product():
 
     for product in products:
         category_key = clean_text(product.get("categoryKey")).lower()
-        product_name = normalize_key(
-            product.get("rawName") or product.get("name")
-        )
+        product_names = {
+            normalize_key(product.get("rawName")),
+            normalize_key(product.get("name")),
+        }
+        product_names.discard("")
 
-        if not category_key or not product_name:
+        if not category_key or not product_names:
             continue
 
         for price_entry in product.get("prices", []):
@@ -169,7 +171,10 @@ def load_existing_affiliate_urls_by_product():
             affiliate_url = clean_text(price_entry.get("affiliateUrl"))
 
             if affiliate_url:
-                affiliate_urls[(category_key, product_name)] = affiliate_url
+                for product_name in product_names:
+                    affiliate_urls[(category_key, product_name)] = (
+                        affiliate_url
+                    )
 
     return affiliate_urls
 
@@ -495,7 +500,8 @@ def load_flipkart_products():
             image,
             url,
             rating,
-            ratings_reviews
+            ratings_reviews,
+            last_seen_at
         FROM products
         WHERE LOWER(source) = 'flipkart'
         ORDER BY category, id
@@ -506,6 +512,43 @@ def load_flipkart_products():
     connection.close()
 
     return rows
+
+
+def deduplicate_flipkart_rows(rows):
+    best_rows = {}
+    key_order = []
+
+    for row in rows:
+        category_key = clean_text(row["category"]).lower()
+        display_name = clean_product_name(row["name"], category_key)
+        product_key = (category_key, normalize_key(display_name))
+        price = clean_price(row["price"])
+
+        if not product_key[1] or not price:
+            continue
+
+        if product_key not in best_rows:
+            best_rows[product_key] = row
+            key_order.append(product_key)
+            continue
+
+        existing_row = best_rows[product_key]
+        observed_at = clean_text(row["last_seen_at"])
+        existing_observed_at = clean_text(existing_row["last_seen_at"])
+
+        if observed_at > existing_observed_at:
+            best_rows[product_key] = row
+            continue
+
+        existing_price = clean_price(existing_row["price"])
+
+        if (
+            observed_at == existing_observed_at
+            and (not existing_price or price < existing_price)
+        ):
+            best_rows[product_key] = row
+
+    return [best_rows[key] for key in key_order]
 
 
 def load_flipkart_price_history():
@@ -599,6 +642,11 @@ def build_product(
             (category_key, normalize_key(raw_name))
         )
 
+    if not existing_affiliate_url:
+        existing_affiliate_url = existing_affiliate_urls_by_product.get(
+            (category_key, normalize_key(display_name))
+        )
+
     if existing_affiliate_url:
         flipkart_entry["affiliateUrl"] = existing_affiliate_url
 
@@ -646,7 +694,7 @@ def build_product(
 
 def main():
     amazon_matches = load_amazon_matches()
-    flipkart_rows = load_flipkart_products()
+    flipkart_rows = deduplicate_flipkart_rows(load_flipkart_products())
     price_history_by_url = load_flipkart_price_history()
     existing_affiliate_urls = load_existing_affiliate_urls()
     existing_affiliate_urls_by_product = (
