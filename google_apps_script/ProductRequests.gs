@@ -1,3 +1,7 @@
+function authorizeGitHubWorkflow() {
+  return triggerFastUpdate_();
+}
+
 const SHEET_NAME = "Product Requests";
 const ANALYTICS_SHEET_NAME = "Site Analytics";
 const HEADERS = [
