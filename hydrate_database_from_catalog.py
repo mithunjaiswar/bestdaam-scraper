@@ -1,6 +1,7 @@
 import json
 import os
-import sqlite3
+
+from database.db import Database
 
 
 SITE_DIR = os.path.expanduser(
@@ -17,23 +18,9 @@ def main():
     with open(PRODUCTS_JSON, "r", encoding="utf-8") as file:
         products = json.load(file)
 
-    connection = sqlite3.connect(DB_PATH)
-    cursor = connection.cursor()
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS price_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            product_url TEXT NOT NULL,
-            source TEXT NOT NULL,
-            price INTEGER NOT NULL,
-            observed_on TEXT NOT NULL,
-            observed_at TEXT NOT NULL,
-            UNIQUE(product_url, source, observed_on)
-        )
-        """
-    )
-
-    inserted = 0
+    database = Database(DB_PATH)
+    restored_products = 0
+    restored_history = 0
 
     for product in products:
         flipkart = next(
@@ -48,6 +35,22 @@ def main():
         if not flipkart or not flipkart.get("url"):
             continue
 
+        database.insert_product(
+            {
+                "name": product.get("rawName") or product.get("name"),
+                "category": product.get("categoryKey"),
+                "price": flipkart.get("price"),
+                "mrp": "",
+                "discount": "",
+                "rating": product.get("rating"),
+                "ratings_reviews": product.get("ratings_reviews"),
+                "image": product.get("image"),
+                "url": flipkart.get("url"),
+                "source": "flipkart",
+            }
+        )
+        restored_products += 1
+
         for point in product.get("priceHistory", []):
             date = str(point.get("date", "")).strip()
             price = point.get("price")
@@ -55,7 +58,7 @@ def main():
             if not date or not isinstance(price, (int, float)) or price <= 0:
                 continue
 
-            cursor.execute(
+            database.cursor.execute(
                 """
                 INSERT OR IGNORE INTO price_history (
                     product_url, source, price, observed_on, observed_at
@@ -69,11 +72,12 @@ def main():
                     f"{date} 00:00:00",
                 ),
             )
-            inserted += cursor.rowcount
+            restored_history += database.cursor.rowcount
 
-    connection.commit()
-    connection.close()
-    print(f"Historical price rows restored: {inserted}")
+    database.conn.commit()
+    database.close()
+    print(f"Catalog products restored : {restored_products}")
+    print(f"Historical price rows restored: {restored_history}")
 
 
 if __name__ == "__main__":
