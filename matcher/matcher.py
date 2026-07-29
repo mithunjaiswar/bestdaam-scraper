@@ -15,6 +15,36 @@ from matcher.normalize import (
 )
 
 
+def extract_airpods_model(name: str) -> str:
+    clean = normalize_product_name(name)
+
+    if "airpods" not in clean:
+        return ""
+
+    if "max" in clean:
+        return "airpods max"
+
+    if "pro 3" in clean or "pro 3rd" in clean:
+        return "airpods pro 3"
+
+    if "pro 2" in clean or "pro 2nd" in clean:
+        return "airpods pro 2"
+
+    if "pro" in clean:
+        return "airpods pro"
+
+    if "airpods 4" in clean:
+        return "airpods 4 anc" if "noise cancellation" in clean else "airpods 4"
+
+    if "3rd generation" in clean or "3rd gen" in clean:
+        return "airpods 3"
+
+    if "2nd generation" in clean or "2nd gen" in clean:
+        return "airpods 2"
+
+    return "airpods"
+
+
 def match_products(
     flipkart_name: str,
     amazon_name: str,
@@ -38,6 +68,49 @@ def match_products(
 
     if flipkart_storage and amazon_storage and flipkart_storage != amazon_storage:
         return False, 0.0
+
+    # Mechanical-pencil lead titles vary heavily between marketplaces.
+    # Size, grade and brand identify the requested consumable reliably.
+    flipkart_is_05_4b_lead = (
+        "lead" in flipkart_clean and "0 5mm" in flipkart_clean and "4b" in flipkart_clean
+    )
+    amazon_is_05_4b_lead = (
+        "lead" in amazon_clean and "0 5mm" in amazon_clean and "4b" in amazon_clean
+    )
+
+    if flipkart_is_05_4b_lead or amazon_is_05_4b_lead:
+        if not flipkart_is_05_4b_lead or not amazon_is_05_4b_lead:
+            return False, 0.0
+
+        lead_brands = {"pentel", "brustro"}
+        shared_lead_brands = (
+            set(flipkart_clean.split())
+            & set(amazon_clean.split())
+            & lead_brands
+        )
+
+        if (
+            flipkart_brand
+            and amazon_brand
+            and flipkart_brand == amazon_brand
+        ) or shared_lead_brands:
+            return True, 100.0
+
+        return False, 0.0
+
+    # AirPods are Apple products but do not have an iPhone model/storage.
+    # Compare their exact generation/family before applying iPhone rules.
+    flipkart_airpods = extract_airpods_model(flipkart_name)
+    amazon_airpods = extract_airpods_model(amazon_name)
+
+    if flipkart_airpods or amazon_airpods:
+        if not flipkart_airpods or not amazon_airpods:
+            return False, 0.0
+
+        if flipkart_airpods != amazon_airpods:
+            return False, 0.0
+
+        return True, 100.0
 
     # =====================================================
     # APPLE IPHONE STRICT MATCHING
@@ -132,6 +205,7 @@ def match_products(
         "smartwatches",
         "speakers",
         "wired_earphones",
+        "requested_products",
     }
 
     same_known_brand = (
