@@ -20,6 +20,10 @@
     "query": "earbuds"
   },
   {
+    "name": "samsung_buds",
+    "query": "Samsung Galaxy Buds"
+  },
+  {
     "name": "wired_earphones",
     "query": "wired earphones"
   },

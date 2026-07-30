@@ -45,6 +45,36 @@ def extract_airpods_model(name: str) -> str:
     return "airpods"
 
 
+def extract_samsung_buds_model(name: str) -> str:
+    clean = normalize_product_name(name)
+
+    if "buds" not in clean or (
+        "samsung" not in clean and "galaxy" not in clean
+    ):
+        return ""
+
+    model_patterns = (
+        (("buds 4 pro", "buds4 pro"), "buds4 pro"),
+        (("buds 4", "buds4"), "buds4"),
+        (("buds 3 pro", "buds3 pro"), "buds3 pro"),
+        (("buds 3 fe", "buds3 fe"), "buds3 fe"),
+        (("buds 3", "buds3"), "buds3"),
+        (("buds 2 pro", "buds2 pro"), "buds2 pro"),
+        (("buds 2", "buds2"), "buds2"),
+        (("buds fe",), "buds fe"),
+        (("buds core",), "buds core"),
+        (("buds pro",), "buds pro"),
+        (("buds live",), "buds live"),
+        (("buds plus", "buds +"), "buds plus"),
+    )
+
+    for aliases, model in model_patterns:
+        if any(alias in clean for alias in aliases):
+            return model
+
+    return ""
+
+
 def match_products(
     flipkart_name: str,
     amazon_name: str,
@@ -108,6 +138,18 @@ def match_products(
             return False, 0.0
 
         if flipkart_airpods != amazon_airpods:
+            return False, 0.0
+
+        return True, 100.0
+
+    flipkart_samsung_buds = extract_samsung_buds_model(flipkart_name)
+    amazon_samsung_buds = extract_samsung_buds_model(amazon_name)
+
+    if flipkart_samsung_buds or amazon_samsung_buds:
+        if not flipkart_samsung_buds or not amazon_samsung_buds:
+            return False, 0.0
+
+        if flipkart_samsung_buds != amazon_samsung_buds:
             return False, 0.0
 
         return True, 100.0
@@ -200,6 +242,7 @@ def match_products(
     relaxed_model_categories = {
         "cameras",
         "earbuds",
+        "samsung_buds",
         "headphones",
         "mobiles",
         "smartwatches",

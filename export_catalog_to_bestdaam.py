@@ -27,6 +27,7 @@ CATEGORY_LABELS = {
     "laptops": "Laptop",
     "headphones": "Headphones",
     "earbuds": "Earbuds",
+    "samsung_buds": "Samsung Buds",
     "wired_earphones": "Wired Earphones",
     "mens_clothing": "Men's Clothing",
     "smartwatches": "Smartwatch",
@@ -45,6 +46,7 @@ CATEGORY_EMOJIS = {
     "laptops": "💻",
     "headphones": "🎧",
     "earbuds": "🎧",
+    "samsung_buds": "🎧",
     "wired_earphones": "🎧",
     "mens_clothing": "👕",
     "smartwatches": "⌚",
@@ -438,6 +440,30 @@ def clean_general_name(name):
     return smart_title(limit_words(raw, 10))
 
 
+def clean_samsung_buds_name(name):
+    normalized = normalize_key(name)
+    models = (
+        (("buds 4 pro", "buds4 pro"), "Samsung Galaxy Buds4 Pro"),
+        (("buds 4", "buds4"), "Samsung Galaxy Buds4"),
+        (("buds 3 pro", "buds3 pro"), "Samsung Galaxy Buds3 Pro"),
+        (("buds 3 fe", "buds3 fe"), "Samsung Galaxy Buds3 FE"),
+        (("buds 3", "buds3"), "Samsung Galaxy Buds3"),
+        (("buds 2 pro", "buds2 pro"), "Samsung Galaxy Buds2 Pro"),
+        (("buds 2", "buds2"), "Samsung Galaxy Buds2"),
+        (("buds fe",), "Samsung Galaxy Buds FE"),
+        (("buds core",), "Samsung Galaxy Buds Core"),
+        (("buds pro",), "Samsung Galaxy Buds Pro"),
+        (("buds live",), "Samsung Galaxy Buds Live"),
+        (("buds plus",), "Samsung Galaxy Buds+"),
+    )
+
+    for aliases, display_name in models:
+        if any(alias in normalized for alias in aliases):
+            return display_name
+
+    return clean_general_name(name)
+
+
 def clean_product_name(name, category_key):
     if category_key == "laptops":
         return clean_laptop_name(name)
@@ -450,6 +476,9 @@ def clean_product_name(name, category_key):
 
     if category_key == "televisions":
         return clean_tv_name(name)
+
+    if category_key == "samsung_buds":
+        return clean_samsung_buds_name(name)
 
     return clean_general_name(name)
 
