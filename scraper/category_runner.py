@@ -30,6 +30,7 @@ def run_all_categories(
 
     succeeded = []
     failed = []
+    consecutive_failures = 0
 
     for category in categories:
 
@@ -55,6 +56,7 @@ def run_all_categories(
             )
         except Exception as error:
             failed.append((name, str(error)))
+            consecutive_failures += 1
             print(
                 f"Category '{name}' temporarily failed: {error}. "
                 "Last verified catalog data will be preserved."
@@ -63,7 +65,17 @@ def run_all_categories(
             if selected_category:
                 raise
 
+            if consecutive_failures >= 3:
+                print(
+                    "Three categories failed consecutively; stopping this "
+                    "retailer session early so the next scheduled run can "
+                    "retry cleanly."
+                )
+                break
+
             continue
+
+        consecutive_failures = 0
 
         products = [
             product

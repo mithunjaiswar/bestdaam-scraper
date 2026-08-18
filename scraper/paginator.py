@@ -1,4 +1,5 @@
 import re
+import os
 import time
 
 from playwright.sync_api import Error as PlaywrightError
@@ -12,15 +13,20 @@ def product_name_key(product):
     return re.sub(r"[^a-z0-9]+", " ", name).strip()
 
 
-def load_results_page(page, url, attempts=3):
+def load_results_page(page, url, attempts=None):
+    is_ci = os.environ.get("CI", "").lower() == "true"
+    attempts = attempts or (2 if is_ci else 3)
+    navigation_timeout = 25000 if is_ci else 45000
+    selector_timeout = 10000 if is_ci else 20000
+
     for attempt in range(1, attempts + 1):
         try:
             page.goto(
                 url,
                 wait_until="domcontentloaded",
-                timeout=45000,
+                timeout=navigation_timeout,
             )
-            page.wait_for_selector("div[data-id]", timeout=20000)
+            page.wait_for_selector("div[data-id]", timeout=selector_timeout)
             page.wait_for_timeout(1500)
             return
         except (PlaywrightTimeoutError, PlaywrightError) as error:
