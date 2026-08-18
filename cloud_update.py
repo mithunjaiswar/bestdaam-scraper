@@ -31,6 +31,7 @@ def main():
     run(PYTHON, "hydrate_database_from_catalog.py")
     run(PYTHON, "main.py")
     run(PYTHON, "export_catalog_to_bestdaam.py")
+    run(PYTHON, "refresh_amazon_creators.py")
     run(PYTHON, "apply_ekaro_api_links.py")
 
     if os.environ.get("SUPABASE_URL") and os.environ.get(
