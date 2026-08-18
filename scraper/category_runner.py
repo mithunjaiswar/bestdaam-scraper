@@ -28,6 +28,9 @@ def run_all_categories(
                 f"Category '{selected_category}' categories.json me nahi mili."
             )
 
+    succeeded = []
+    failed = []
+
     for category in categories:
 
         name = category["name"]
@@ -43,12 +46,24 @@ def run_all_categories(
         print(f"Starting Category : {name}")
         print("=" * 60)
 
-        products = scrape_top_products(
-            page=page,
-            base_url=base_url,
-            category=query,
-            limit=category_limit,
-        )
+        try:
+            products = scrape_top_products(
+                page=page,
+                base_url=base_url,
+                category=query,
+                limit=category_limit,
+            )
+        except Exception as error:
+            failed.append((name, str(error)))
+            print(
+                f"Category '{name}' temporarily failed: {error}. "
+                "Last verified catalog data will be preserved."
+            )
+
+            if selected_category:
+                raise
+
+            continue
 
         products = [
             product
@@ -73,3 +88,18 @@ def run_all_categories(
         print(f"Scraped products : {len(products)}")
         print(f"Database handled : {saved_count}")
         print(f"CSV saved        : {filename}")
+        succeeded.append(name)
+
+    if not succeeded:
+        raise RuntimeError(
+            "All requested categories failed; refusing to publish an "
+            "unverified catalog refresh."
+        )
+
+    print(
+        f"\nCategory refresh summary: {len(succeeded)} succeeded, "
+        f"{len(failed)} failed."
+    )
+
+    for name, error in failed:
+        print(f"- Preserved previous data for {name}: {error}")
