@@ -92,6 +92,28 @@ def match_score(candidate_name, requested_label):
     return matched / len(requested)
 
 
+def normalized_name(value):
+    return re.sub(r"[^a-z0-9]+", " ", clean_text(value).lower()).strip()
+
+
+def is_reliable_match(candidate_name, requested_label, score=None):
+    """Accept strong token matches and near-identical titles with extra variants.
+
+    Flipkart sometimes omits suffixes such as colour and pack size from the
+    visible search-card title. The full-title comparison prevents those exact
+    products from being rejected while keeping unrelated short matches out.
+    """
+    score = match_score(candidate_name, requested_label) if score is None else score
+    if score >= 0.65:
+        return True
+
+    candidate = normalized_name(candidate_name)
+    requested = normalized_name(requested_label)
+    if len(candidate) < 24 or len(requested) < 24:
+        return False
+    return SequenceMatcher(None, candidate, requested).ratio() >= 0.82
+
+
 def infer_category(name):
     value = name.lower()
     rules = [
@@ -248,7 +270,9 @@ def process_pending_requests():
                 else 0
             )
 
-            if not best or score < 0.65:
+            if not best or not is_reliable_match(
+                best.get("name", ""), label, score
+            ):
                 print(
                     f"Needs review: reliable match nahi mila "
                     f"(score={score:.2f})."
