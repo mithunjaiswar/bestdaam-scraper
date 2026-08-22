@@ -14,6 +14,7 @@ SITE_DIR = os.path.expanduser(
     os.environ.get("BESTDAAM_SITE_DIR", "~/Desktop/bestdaam-price")
 )
 PRODUCTS_JSON = os.path.join(SITE_DIR, "data", "products.json")
+OFFERS_JSON = os.path.join(SITE_DIR, "data", "earnkaro-offers.json")
 BACKUP_DIR = "output/backups"
 
 SLEEP_SECONDS = float(os.environ.get("EKARO_SLEEP_SECONDS", "1.5"))
@@ -111,6 +112,44 @@ def convert_url(original_url, token):
 def save_products(products):
     with open(PRODUCTS_JSON, "w", encoding="utf-8") as file:
         json.dump(products, file, ensure_ascii=False, indent=2)
+
+
+def save_offers(offers):
+    with open(OFFERS_JSON, "w", encoding="utf-8") as file:
+        json.dump(offers, file, ensure_ascii=False, indent=2)
+
+
+def convert_offer_links(token):
+    if not os.path.exists(OFFERS_JSON):
+        print("EarnKaro offers file missing: skipping curated offers.")
+        return
+
+    with open(OFFERS_JSON, "r", encoding="utf-8") as file:
+        offers = json.load(file)
+
+    pending = [
+        offer
+        for offer in offers
+        if clean_text(offer.get("merchantUrl"))
+        and not clean_text(offer.get("affiliateUrl"))
+    ]
+
+    print(f"Pending curated offer links  : {len(pending)}")
+
+    for index, offer in enumerate(pending, start=1):
+        title = clean_text(offer.get("title"))
+        print(f"[Offer {index}/{len(pending)}] Converting: {title[:70]}")
+        affiliate_url = convert_url(clean_text(offer.get("merchantUrl")), token)
+
+        if affiliate_url:
+            offer["affiliateUrl"] = affiliate_url
+            print(f"  OK: {affiliate_url}")
+        else:
+            print("  Failed; original merchant URL preserved.")
+
+        time.sleep(SLEEP_SECONDS)
+
+    save_offers(offers)
 
 
 def get_api_token():
@@ -235,6 +274,7 @@ def main():
         time.sleep(SLEEP_SECONDS)
 
     save_products(products)
+    convert_offer_links(token)
 
     print("=" * 80)
     print(f"Affiliate links applied : {applied_count}")
